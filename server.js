@@ -47,8 +47,10 @@ http.createServer(function (req, res) {
       console.log(payload)
       if (servers[site]) {
         cp.exec('git pull', {cwd: servers[site].dir}, hx(function () {
-          servers[site].proc.once('exit', function () {startServer(site)});
-          servers[site].proc.kill();
+          cp.exec('npm install', {cwd: servers[site].dir}, hx(function () {
+            servers[site].proc.once('exit', function () {startServer(site)});
+            servers[site].proc.kill();
+          }));
         }));
       } else {
         if (!payload.repository) return res.end('no repo in payload\n');

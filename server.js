@@ -11,10 +11,11 @@ var servers = {};
 
 function startServer (name) {
   var dir = path.resolve(cwd, name);
-  servers[name] = {
-    dir: dir,
-    proc: cp.fork(path.resolve(dir, 'server.js'), {cwd: dir, env: process.env})
-  };
+  if (!servers[name]) {servers[name] = {dir: dir}}
+  servers[name].proc = cp.fork(path.resolve(dir, 'server.js'), {
+    cwd: dir,
+    env: process.env
+  });
 }
 
 // Run server.js in each directory

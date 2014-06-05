@@ -18,10 +18,16 @@ function startServer (name) {
   });
 }
 
-// Run server.js in each directory
+// Start up server.js in each directory
 fs.readdirSync(cwd).filter(function (file) {
   return fs.statSync(file).isDirectory()
-}).forEach(startServer);
+}).forEach(function (dir) {
+  cp.exec('git pull', {cwd: dir}, hx(function () {
+    cp.exec('npm install', {cwd: dir}, hx(function () {
+      startServer(dir);
+    }));
+  }));
+});
 
 // Handler for exec calls
 function hx (cb) {
@@ -47,9 +53,9 @@ http.createServer(function (req, res) {
       var payload = JSON.parse(body);
       console.log(payload)
       if (servers[site]) {
+        servers[site].proc.once('exit', function () {startServer(site)});
         cp.exec('git pull', {cwd: servers[site].dir}, hx(function () {
           cp.exec('npm install', {cwd: servers[site].dir}, hx(function () {
-            servers[site].proc.once('exit', function () {startServer(site)});
             servers[site].proc.kill();
           }));
         }));

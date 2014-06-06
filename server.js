@@ -1,4 +1,5 @@
 var cp = require('child_process');
+var flatini = require('flatini');
 var fs = require('fs');
 var http = require('http');
 var path = require('path');
@@ -8,6 +9,15 @@ var url = require('url');
 var cwd = process.cwd();
 var port = process.env.PORT || 8951;
 var servers = {};
+
+function getConf (filePath) {
+  var confStr = fs.readFileSync(filePath, 'utf8');
+  var conf = flatini(confStr);
+  console.log(conf);
+  return conf;
+}
+
+var conf = getConf('/etc/hooky.conf');
 
 function startServer (name) {
   var dir = path.resolve(cwd, name);

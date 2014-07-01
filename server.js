@@ -21,8 +21,9 @@ var conf = getConf('/etc/hooky.conf');
 
 function startServer (name) {
   var dir = path.resolve(cwd, name);
+  var start = (conf[name] && conf[name].start) || 'server.js';
   if (!servers[name]) {servers[name] = {dir: dir}}
-  servers[name].proc = cp.fork(path.resolve(dir, 'server.js'), {
+  servers[name].proc = cp.fork(path.resolve(dir, start), {
     cwd: dir,
     env: process.env
   });

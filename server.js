@@ -1,10 +1,10 @@
 var cp = require('child_process');
+var flatini = require('flatini');
 var fs = require('fs');
+var getEnv = require('./getEnv');
 var http = require('http');
-var parseConf = require('./parseConf');
 var path = require('path');
 var url = require('url');
-var xtend = require('xtend');
 
 
 var cwd = process.cwd();
@@ -13,8 +13,7 @@ var servers = {};
 
 function getConf (filePath) {
   var confStr = fs.readFileSync(filePath, 'utf8');
-  var conf = parseConf(confStr);
-  return conf;
+  return flatini(confStr);
 }
 
 var conf = getConf('/etc/hooky.conf');
@@ -23,9 +22,10 @@ function startServer (name) {
   var dir = path.resolve(cwd, name);
   var start = (conf[name] && conf[name].start) || conf.start || 'server.js';
   if (!servers[name]) {servers[name] = {dir: dir}}
+  var env = getEnv(conf, name);
   servers[name].proc = cp.fork(path.resolve(dir, start), {
     cwd: dir,
-    env: xtend(conf.env, conf[name] && conf[name].env)
+    env: getEnv(conf, name)
   });
 }
 

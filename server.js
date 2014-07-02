@@ -1,9 +1,10 @@
 var cp = require('child_process');
-var flatini = require('flatini');
 var fs = require('fs');
 var http = require('http');
+var parseConf = require('./parseConf');
 var path = require('path');
 var url = require('url');
+var xtend = require('xtend');
 
 
 var cwd = process.cwd();
@@ -12,8 +13,7 @@ var servers = {};
 
 function getConf (filePath) {
   var confStr = fs.readFileSync(filePath, 'utf8');
-  var conf = flatini(confStr);
-  console.log(conf);
+  var conf = parseConf(confStr);
   return conf;
 }
 
@@ -25,7 +25,7 @@ function startServer (name) {
   if (!servers[name]) {servers[name] = {dir: dir}}
   servers[name].proc = cp.fork(path.resolve(dir, start), {
     cwd: dir,
-    env: process.env
+    env: xtend(conf.env, conf[name] && conf[name].env)
   });
 }
 

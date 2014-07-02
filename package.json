@@ -1,0 +1,17 @@
+{
+  "name": "hooky",
+  "version": "0.0.0",
+  "description": "github webhook continuous deployment",
+  "repository": "git://github.com/gsf/hooky.git",
+  "dependencies": {
+    "flatini": "^0.0.1",
+    "xtend": "^3.0.0"
+  },
+  "devDependencies": {
+    "tap": "^0.4.11"
+  },
+  "scripts": {
+    "test": "tap test/*.js"
+  },
+  "license": "ISC"
+}

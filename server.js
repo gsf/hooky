@@ -62,6 +62,7 @@ http.createServer(function (req, res) {
     req.on('data', function (chunk) {body += chunk});
     req.on('end', function () {
       var payload = JSON.parse(body);
+      if (!payload.repository) return res.end('no repo in payload\n');
       console.log(payload)
       if (servers[site]) {
         servers[site].proc.once('exit', function () {startServer(site)});
@@ -71,7 +72,6 @@ http.createServer(function (req, res) {
           }));
         }));
       } else {
-        if (!payload.repository) return res.end('no repo in payload\n');
         cp.exec('git clone ' + payload.repository.url + '.git', hx(function () {
           var dir = path.resolve(cwd, site);
           cp.exec('npm install', {cwd: dir}, hx(function () {

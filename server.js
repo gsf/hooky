@@ -29,6 +29,16 @@ function startServer (name) {
   });
 }
 
+// Handler for exec calls
+function hx (cb) {
+  return function (err, stdout, stderr) {
+    if (err) console.log(err.stack);
+    if (stdout) console.log(stdout);
+    if (stderr) console.error(stderr);
+    if (cb) cb();
+  };
+}
+
 // Start up server.js in each directory
 fs.readdirSync(cwd).filter(function (file) {
   return fs.statSync(file).isDirectory()
@@ -39,16 +49,6 @@ fs.readdirSync(cwd).filter(function (file) {
     }));
   }));
 });
-
-// Handler for exec calls
-function hx (cb) {
-  return function (err, stdout, stderr) {
-    if (err) throw err;
-    console.log(stdout);
-    console.error(stderr);
-    if (cb) cb();
-  };
-}
 
 http.createServer(function (req, res) {
   console.log(req.method, req.url);
@@ -63,7 +63,11 @@ http.createServer(function (req, res) {
     req.on('end', function () {
       var payload = JSON.parse(body);
       if (!payload.repository) return res.end('no repo in payload\n');
-      console.log(payload)
+
+      var branch = payload.ref.split('/')[2];
+      if (!branch) return res.end('no branch specified in payload\n');
+      if (branch != 'master') site = branch + '.' + site;
+
       if (servers[site]) {
         servers[site].proc.once('exit', function () {startServer(site)});
         cp.exec('git pull', {cwd: servers[site].dir}, hx(function () {
@@ -72,7 +76,7 @@ http.createServer(function (req, res) {
           }));
         }));
       } else {
-        cp.exec('git clone ' + payload.repository.url + '.git', hx(function () {
+        cp.exec('git clone ' + payload.repository.url + '.git -b ' + branch + ' ' + site, hx(function () {
           var dir = path.resolve(cwd, site);
           cp.exec('npm install', {cwd: dir}, hx(function () {
             startServer(site);

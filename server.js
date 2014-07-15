@@ -3,6 +3,7 @@ var flatini = require('flatini');
 var fs = require('fs');
 var getEnv = require('./getEnv');
 var http = require('http');
+var mkdirp = require('mkdirp');
 var path = require('path');
 var url = require('url');
 
@@ -18,23 +19,37 @@ function getConf (filePath) {
 
 var conf = getConf('/etc/hooky.conf');
 
-function startServer (name) {
-  var dir = path.resolve(cwd, name);
-  var start = (conf[name] && conf[name].start) || conf.start || 'server.js';
-  if (!servers[name]) {servers[name] = {dir: dir}}
-  var env = getEnv(conf, name);
-  servers[name].proc = cp.fork(path.resolve(dir, start), {
-    cwd: dir,
-    env: getEnv(conf, name)
+function addServer (site) {
+  console.log('Adding server', site);
+  var dir = path.resolve(cwd, site);
+  var log = (conf[site] && conf[site].log) ||
+    path.resolve(conf.logDir || '/var/log/hooky', site);
+  var start = (conf[site] && conf[site].start) || conf.start || 'server.js';
+  mkdirp.sync(path.dirname(log));
+  servers[site] = {
+    dir: dir,
+    log: fs.createWriteStream(log, {flags: 'a'}),
+    start: path.resolve(dir, start)
+  };
+}
+
+function startServer (site) {
+  var p = cp.fork(servers[site].start, {
+    cwd: servers[site].dir,
+    env: getEnv(conf, site),
+    silent: true
   });
+  p.stdout.pipe(servers[site].log);
+  p.stderr.pipe(servers[site].log);
+  servers[site].proc = p;
 }
 
 // Handler for exec calls
-function hx (cb) {
+function hx (site, cb) {
   return function (err, stdout, stderr) {
-    if (err) console.log(err.stack);
-    if (stdout) console.log(stdout);
-    if (stderr) console.error(stderr);
+    if (err) servers[site].log.write(err.stack, 'utf8');
+    if (stdout) servers[site].log.write(stdout);
+    if (stderr) servers[site].log.write(stderr);
     if (cb) cb();
   };
 }
@@ -42,10 +57,11 @@ function hx (cb) {
 // Start up server.js in each directory
 fs.readdirSync(cwd).filter(function (file) {
   return fs.statSync(file).isDirectory()
-}).forEach(function (dir) {
-  cp.exec('git pull', {cwd: dir}, hx(function () {
-    cp.exec('npm install', {cwd: dir}, hx(function () {
-      startServer(dir);
+}).forEach(function (site) {
+  addServer(site);
+  cp.exec('git pull', {cwd: site}, hx(site, function () {
+    cp.exec('npm install', {cwd: site}, hx(site, function () {
+      startServer(site);
     }));
   }));
 });
@@ -70,18 +86,21 @@ http.createServer(function (req, res) {
 
       if (servers[site]) {
         servers[site].proc.once('exit', function () {startServer(site)});
-        cp.exec('git pull', {cwd: servers[site].dir}, hx(function () {
-          cp.exec('npm install', {cwd: servers[site].dir}, hx(function () {
+        cp.exec('git pull', {cwd: servers[site].dir}, hx(site, function () {
+          cp.exec('npm install', {cwd: servers[site].dir}, hx(site, function () {
             servers[site].proc.kill();
           }));
         }));
       } else {
-        cp.exec('git clone ' + payload.repository.url + '.git -b ' + branch + ' ' + site, hx(function () {
-          var dir = path.resolve(cwd, site);
-          cp.exec('npm install', {cwd: dir}, hx(function () {
-            startServer(site);
-          }));
-        }));
+        addServer(site);
+        cp.exec(
+          'git clone ' + payload.repository.url + '.git -b ' + branch + ' ' + site,
+          hx(site, function () {
+            cp.exec('npm install', {cwd: servers[site].dir}, hx(site, function () {
+              startServer(site);
+            }));
+          })
+        );
       }
       res.end('ok\n');
     });

@@ -5,6 +5,7 @@
   "repository": "git://github.com/gsf/hooky.git",
   "dependencies": {
     "flatini": "^0.0.1",
+    "minimist": "^0.2.0",
     "mkdirp": "^0.5.0"
   },
   "devDependencies": {

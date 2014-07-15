@@ -1,3 +1,4 @@
+var argv = require('minimist')(process.argv.slice(2));
 var cp = require('child_process');
 var flatini = require('flatini');
 var fs = require('fs');
@@ -7,6 +8,8 @@ var mkdirp = require('mkdirp');
 var path = require('path');
 var url = require('url');
 
+
+function debug () {argv.v && console.log.apply(this, arguments)}
 
 var cwd = process.cwd();
 var port = process.env.PORT || 8951;
@@ -20,7 +23,7 @@ function getConf (filePath) {
 var conf = getConf('/etc/hooky.conf');
 
 function addServer (site) {
-  console.log('Adding server', site);
+  debug('Adding server', site);
   var dir = path.resolve(cwd, site);
   var log = (conf[site] && conf[site].log) ||
     path.resolve(conf.logDir || '/var/log/hooky', site);
@@ -67,7 +70,7 @@ fs.readdirSync(cwd).filter(function (file) {
 });
 
 http.createServer(function (req, res) {
-  console.log(req.method, req.url);
+  debug(req.method, req.url);
   var u = url.parse(req.url);
   if (u.pathname == '/') {
     return res.end('ok\n');
@@ -106,5 +109,5 @@ http.createServer(function (req, res) {
     });
   }
 }).listen(port, function () {
-  console.log('Running on port', port);
+  debug('Running on port', port);
 });

@@ -6,6 +6,7 @@ var getEnv = require('./getEnv');
 var http = require('http');
 var mkdirp = require('mkdirp');
 var path = require('path');
+var stream = require('stream');
 var url = require('url');
 
 
@@ -25,13 +26,21 @@ var conf = getConf('/etc/hooky.conf');
 function addServer (site) {
   debug('Adding server', site);
   var dir = path.resolve(cwd, site);
-  var log = (conf[site] && conf[site].log) ||
+
+  var logfile = (conf[site] && conf[site].log) ||
     path.resolve(conf.logDir || '/var/log/hooky', site);
+  mkdirp.sync(path.dirname(logfile));
+  var logfileStream = fs.createWriteStream(logfile, {flags: 'a'});
+  var log = new stream.Writable({decodeStrings: false});
+  log._write = function (chunk, encoding, callback) {
+    logfileStream.write(new Date().toISOString() + ' ' + chunk);
+    callback();
+  };
+
   var start = (conf[site] && conf[site].start) || conf.start || 'server.js';
-  mkdirp.sync(path.dirname(log));
   servers[site] = {
     dir: dir,
-    log: fs.createWriteStream(log, {flags: 'a'}),
+    log: log,
     start: path.resolve(dir, start)
   };
 }

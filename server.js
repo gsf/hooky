@@ -31,11 +31,17 @@ function addServer (site) {
     path.resolve(conf.logDir || '/var/log/hooky', site);
   mkdirp.sync(path.dirname(logfile));
   var logfileStream = fs.createWriteStream(logfile, {flags: 'a'});
-  var log = new stream.Writable({decodeStrings: false});
+  logfileStream.on('error', function (err) {
+    console.error('Error writing to log file for ' + site + ':', err.message);
+  });
+  var log = new stream.Writable();
   log._write = function (chunk, encoding, callback) {
     logfileStream.write(new Date().toISOString() + ' ' + chunk);
     callback();
   };
+  log.on('error', function (err) {
+    console.error('Error writing log for ' + site + ':', err.message);
+  });
 
   var start = (conf[site] && conf[site].start) || conf.start || 'server.js';
   servers[site] = {
@@ -51,8 +57,8 @@ function startServer (site) {
     env: getEnv(conf, site),
     silent: true
   });
-  p.stdout.pipe(servers[site].log);
-  p.stderr.pipe(servers[site].log);
+  p.stdout.pipe(servers[site].log, {end: false});
+  p.stderr.pipe(servers[site].log, {end: false});
   servers[site].proc = p;
 }
 

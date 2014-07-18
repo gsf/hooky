@@ -52,6 +52,7 @@ function addServer (site) {
 }
 
 function startServer (site) {
+  servers[site].log.write('Starting process\n', 'utf8');
   var p = cp.fork(servers[site].start, {
     cwd: servers[site].dir,
     env: getEnv(conf, site),
@@ -62,14 +63,25 @@ function startServer (site) {
   servers[site].proc = p;
 }
 
-// Handler for exec calls
-function hx (site, cb) {
-  return function (err, stdout, stderr) {
-    if (err) servers[site].log.write(err.stack, 'utf8');
-    if (stdout) servers[site].log.write(stdout);
-    if (stderr) servers[site].log.write(stderr);
+function exec (cmd, opt, cb) {
+  var site = opt.site;
+  var wd = opt.wd || servers[site].dir;
+  var log = servers[site].log;
+  log.write('Running "' + cmd + '" in ' + wd + '\n', 'utf8');
+  cp.exec(cmd, {cwd: wd}, function (err, stdout, stderr) {
+    if (err) log.write(err.stack, 'utf8');
+    if (stdout) log.write(stdout);
+    if (stderr) log.write(stderr);
     if (cb) cb();
-  };
+  });
+}
+
+function update (site, cb) {
+  exec('git fetch', {site: site}, function () {
+    exec('git reset --hard FETCH_HEAD', {site: site}, function () {
+      exec('npm install', {site: site}, cb);
+    });
+  });
 }
 
 // Start up server.js in each directory
@@ -77,11 +89,7 @@ fs.readdirSync(cwd).filter(function (file) {
   return fs.statSync(file).isDirectory()
 }).forEach(function (site) {
   addServer(site);
-  cp.exec('git pull', {cwd: site}, hx(site, function () {
-    cp.exec('npm install', {cwd: site}, hx(site, function () {
-      startServer(site);
-    }));
-  }));
+  update(site, function () {startServer(site)});
 });
 
 http.createServer(function (req, res) {
@@ -104,21 +112,18 @@ http.createServer(function (req, res) {
 
       if (servers[site]) {
         servers[site].proc.once('exit', function () {startServer(site)});
-        cp.exec('git pull', {cwd: servers[site].dir}, hx(site, function () {
-          cp.exec('npm install', {cwd: servers[site].dir}, hx(site, function () {
-            servers[site].proc.kill();
-          }));
-        }));
+        update(site, function () {
+          servers[site].log.write('Killing process\n', 'utf8');
+          servers[site].proc.kill();
+        });
       } else {
         addServer(site);
-        cp.exec(
-          'git clone ' + payload.repository.url + '.git -b ' + branch + ' ' + site,
-          hx(site, function () {
-            cp.exec('npm install', {cwd: servers[site].dir}, hx(site, function () {
-              startServer(site);
-            }));
-          })
-        );
+        exec('git clone ' + payload.repository.url + '.git -b ' + branch + ' ' + site, {
+          site: site,
+          wd: cwd
+        }, function () {
+          exec('npm install', {site: site}, function () {startServer(site)});
+        });
       }
       res.end('ok\n');
     });

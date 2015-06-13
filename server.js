@@ -65,7 +65,7 @@ function startServer (site) {
     if (!signal) {
       servers[site].log.write('Exited without signal\n');
       if (Date.now() - servers[site].startTime < 5000) {
-        servers[site].log.write('Started less than 5 seconds ago so not restarting');
+        servers[site].log.write('Started less than 5 seconds ago so not restarting\n');
       } else {
         startServer(site);
       }

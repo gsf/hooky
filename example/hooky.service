@@ -1,0 +1,11 @@
+[Unit]
+Description=Hooky Service
+After=network.target
+
+[Service]
+User=hooky
+WorkingDirectory=/var/lib/hooky
+ExecStart=/usr/bin/node /home/gsf/git/hooky/server.js -v
+
+[Install]
+WantedBy=multi-user.target

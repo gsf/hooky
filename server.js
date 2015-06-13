@@ -53,6 +53,7 @@ function addServer (site) {
 
 function startServer (site) {
   servers[site].log.write('Starting process\n', 'utf8');
+  servers[site].startTime = Date.now();
   var p = cp.fork(servers[site].start, {
     cwd: servers[site].dir,
     env: getEnv(conf, site),
@@ -60,6 +61,16 @@ function startServer (site) {
   });
   p.stdout.pipe(servers[site].log, {end: false});
   p.stderr.pipe(servers[site].log, {end: false});
+  p.on('exit', function (code, signal) {
+    if (!signal) {
+      servers[site].log.write('Exited without signal\n');
+      if (Date.now() - servers[site].startTime < 5000) {
+        servers[site].log.write('Started less than 5 seconds ago so not restarting');
+      } else {
+        startServer(site);
+      }
+    }
+  });
   servers[site].proc = p;
 }
 

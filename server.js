@@ -61,14 +61,13 @@ function startServer (site) {
   });
   p.stdout.pipe(servers[site].log, {end: false});
   p.stderr.pipe(servers[site].log, {end: false});
-  p.on('exit', function (code, signal) {
-    if (!signal) {
-      servers[site].log.write('Exited without signal\n');
-      if (Date.now() - servers[site].startTime < 5000) {
-        servers[site].log.write('Started less than 5 seconds ago so not restarting\n');
-      } else {
-        startServer(site);
-      }
+  // Restart on exit
+  p.once('exit', function () {
+    servers[site].log.write('Process killed\n');
+    if (Date.now() - servers[site].startTime < 5000) {
+      servers[site].log.write('Process started less than 5 seconds ago so not restarting\n');
+    } else {
+      startServer(site);
     }
   });
   servers[site].proc = p;
@@ -122,11 +121,7 @@ http.createServer(function (req, res) {
       if (branch != 'master') site = branch + '.' + site;
 
       if (servers[site]) {
-        servers[site].proc.once('exit', function () {startServer(site)});
-        update(site, function () {
-          servers[site].log.write('Killing process\n', 'utf8');
-          servers[site].proc.kill();
-        });
+        update(site, function () {servers[site].proc.kill()});
       } else {
         addServer(site);
         exec('git clone ' + payload.repository.url + '.git -b ' + branch + ' ' + site, {
